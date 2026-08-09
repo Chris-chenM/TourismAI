@@ -1,0 +1,149 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TourismAI Demo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; color: #333; }
+  .container { max-width: 800px; margin: 40px auto; padding: 0 16px; }
+  h1 { font-size: 24px; margin-bottom: 8px; }
+  .subtitle { color: #666; margin-bottom: 24px; }
+  .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: #555; }
+  input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; transition: border-color .2s; }
+  input:focus, textarea:focus { border-color: #4f46e5; }
+  textarea { resize: vertical; min-height: 60px; }
+  .row { display: flex; gap: 16px; }
+  .row > * { flex: 1; }
+  button { padding: 12px 32px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background .2s; }
+  button:hover { background: #4338ca; }
+  button:disabled { background: #a5b4fc; cursor: not-allowed; }
+  .loading { display: none; align-items: center; gap: 8px; color: #666; margin: 16px 0; }
+  .loading.show { display: flex; }
+  .spinner { width: 20px; height: 20px; border: 2px solid #ddd; border-top-color: #4f46e5; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { display: none; padding: 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #dc2626; margin: 16px 0; }
+  .error.show { display: block; }
+  .itinerary { display: none; }
+  .itinerary.show { display: block; }
+  .day-card { background: #fafafa; border-radius: 10px; padding: 20px; margin-bottom: 16px; border-left: 4px solid #4f46e5; }
+  .day-title { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+  .activity { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; }
+  .activity:last-child { border-bottom: none; }
+  .time { font-size: 13px; color: #666; white-space: nowrap; min-width: 100px; }
+  .info { flex: 1; }
+  .name { font-weight: 500; margin-bottom: 2px; }
+  .meta { font-size: 12px; color: #999; }
+  .coord { font-size: 11px; color: #aaa; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🗺 TourismAI</h1>
+  <p class="subtitle">智能旅游规划助手 · Sprint 1 Demo</p>
+
+  <div class="card">
+    <div class="row">
+      <div class="form-group">
+        <label>目的地</label>
+        <input id="city" value="杭州" placeholder="如：杭州">
+      </div>
+      <div class="form-group">
+        <label>天数</label>
+        <input id="days" type="number" value="3" min="1" max="30">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>预算（元）</label>
+      <input id="budget" type="number" value="2000" min="1">
+    </div>
+    <div class="form-group">
+      <label>兴趣偏好</label>
+      <textarea id="interests" placeholder="如：历史文化、美食、自然风光"></textarea>
+    </div>
+    <button id="submitBtn" onclick="plan()">生成旅行计划</button>
+
+    <div id="loading" class="loading">
+      <div class="spinner"></div> 正在规划中，请稍候...
+    </div>
+    <div id="error" class="error"></div>
+  </div>
+
+  <div id="itinerary" class="itinerary"></div>
+</div>
+
+<script>
+async function plan() {
+  const city = document.getElementById('city').value.trim();
+  const days = parseInt(document.getElementById('days').value);
+  const budget = parseFloat(document.getElementById('budget').value);
+  const interests = document.getElementById('interests').value.trim();
+
+  if (!city || !days || !budget) {
+    showError('请填写完整信息');
+    return;
+  }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('error').classList.remove('show');
+  document.getElementById('itinerary').classList.remove('show');
+
+  try {
+    const resp = await fetch('/api/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ destination: city, days, budget, interests }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    renderItinerary(data);
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('loading').classList.remove('show');
+  }
+}
+
+function renderItinerary(data) {
+  let html = '';
+  for (const day of data.itinerary || []) {
+    html += `<div class="day-card"><div class="day-title">📅 第 ${day.day} 天</div>`;
+    for (const act of day.activities || []) {
+      const durH = Math.floor(act.duration / 60);
+      const durM = act.duration % 60;
+      const durText = durH > 0 ? `${durH}小时${durM > 0 ? durM + '分' : ''}` : `${durM}分钟`;
+      html += `
+        <div class="activity">
+          <div class="time">${act.start_time}<br>${durText}</div>
+          <div class="info">
+            <div class="name">📍 ${act.name}</div>
+            <div class="meta">🚶 ${act.transport}</div>
+            <div class="coord">${act.longitude.toFixed(4)}, ${act.latitude.toFixed(4)}</div>
+          </div>
+        </div>`;
+    }
+    html += '</div>';
+  }
+
+  document.getElementById('itinerary').innerHTML = html || '<p>暂无行程数据</p>';
+  document.getElementById('itinerary').classList.add('show');
+}
+
+function showError(msg) {
+  document.getElementById('error').textContent = '❌ ' + msg;
+  document.getElementById('error').classList.add('show');
+}
+</script>
+</body>
+</html>
