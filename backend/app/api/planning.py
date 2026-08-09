@@ -31,6 +31,7 @@ class Activity(BaseModel):
     start_time: str
     duration: int
     transport: str
+    description: str = ""
 
 
 class DayPlan(BaseModel):
@@ -57,11 +58,9 @@ async def plan_trip(req: PlanRequest):
 
         result = await agent.ainvoke(initial_state)
 
-        # 取最后一条 AI 消息
         last_msg = result["messages"][-1]
         content = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
 
-        # 提取 JSON 并校验
         raw = _extract_json(content)
         itinerary = _parse_itinerary(raw)
 
@@ -70,29 +69,62 @@ async def plan_trip(req: PlanRequest):
             days=raw.get("days", req.days),
             itinerary=itinerary,
         )
+    except json.JSONDecodeError as e:
+        # 把原始输出也带出来，方便定位
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI 返回了不规范的 JSON，请重试。错误位置：{str(e)}",
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"规划失败：{str(e)}")
 
 
-# ── 辅助函数 ──
+# ── JSON 提取 ──
 
 def _extract_json(text: str) -> dict:
-    """从大模型输出中提取 JSON"""
+    """从大模型输出中提取 JSON，自动修复常见格式问题"""
     text = text.strip()
+
+    # 去掉 Markdown 代码块
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
+
+    # 尝试直接解析
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        match = re.search(r"\{[\s\S]*\}", text)
-        if match:
-            return json.loads(match.group())
-        return {}
+        pass
+
+    # 提取花括号内容
+    match = re.search(r"\{[\s\S]*\}", text)
+    if match:
+        text = match.group()
+
+    # 修复常见 LLM JSON 错误
+    text = _repair_json(text)
+
+    return json.loads(text)
+
+
+def _repair_json(text: str) -> str:
+    """修复 LLM 常见 JSON 格式错误"""
+    # 1. 去掉尾部逗号（在 } 或 ] 之前）
+    text = re.sub(r",\s*(\}|\])", r"\1", text)
+    # 2. 去掉连续逗号
+    text = re.sub(r",\s*,", ",", text)
+    # 3. 补充缺失的引号（简单情况：未加引号的 key）
+    # 4. 去掉注释行 (// ...)
+    text = re.sub(r"//[^\n]*", "", text)
+    # 5. 修复中文引号
+    text = text.replace("\u201c", '"').replace("\u201d", '"')
+    text = text.replace("\u2018", "'").replace("\u2019", "'")
+
+    return text
 
 
 def _parse_itinerary(raw: dict) -> list[DayPlan]:
-    """将 LLM 输出的原始 dict 转为 Pydantic 模型列表，缺失字段自动补默认值"""
+    """将 LLM 输出的原始 dict 转为 Pydantic 模型，缺失字段自动补默认值"""
     days = []
     for day_data in raw.get("itinerary", []):
         activities = []
@@ -105,6 +137,7 @@ def _parse_itinerary(raw: dict) -> list[DayPlan]:
                 start_time=act.get("start_time", "09:00"),
                 duration=int(act.get("duration", 120)),
                 transport=act.get("transport", ""),
+                description=act.get("description", ""),
             ))
         days.append(DayPlan(day=day_data.get("day", len(days) + 1), activities=activities))
     return days

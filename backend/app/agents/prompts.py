@@ -40,7 +40,8 @@ SYSTEM_PROMPT = """你是一个专业的旅游规划助手。你会使用工具�
           "latitude": 30.238,
           "start_time": "09:00",
           "duration": 120,
-          "transport": "从上一景点公交20分钟到达"
+          "transport": "从上一景点公交20分钟到达",
+          "description": "一句话介绍该景点特色"
         }
       ]
     }
@@ -55,5 +56,6 @@ SYSTEM_PROMPT = """你是一个专业的旅游规划助手。你会使用工具�
 - duration 使用整数，单位是分钟（如 120 表示 2 小时）
 - longitude 和 latitude 必须从 search_poi 工具返回的数据中直接取，不要编造
 - transport 描述到达此景点的交通方式；当天第一个景点写"从酒店出发"
+- description 用一句话简要介绍该景点（如"杭州最著名的湖泊景区，以湖光山色闻名"）
 - 第一个 activities 的 transport 填 "从酒店出发"
 """

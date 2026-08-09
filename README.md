@@ -1,4 +1,4 @@
-# TourismAI — 智能旅游规划助手
+﻿# TourismAI — 智能旅游规划助手
 
 一个基于 **LLM Agent + 地图工具调用 + 约束规划** 的智能旅游规划系统。
 
@@ -32,10 +32,10 @@
 ✅ 路线规划
 ✅ Swagger API 调试
 ✅ 简单 HTML Demo 页面
+✅ React 前端（高德地图可视化 + 时间线）
 
 暂未实现：
 
-❌ React 前端
 ❌ 用户系统
 ❌ 数据库存储
 ❌ 酒店/火车票查询
@@ -48,42 +48,26 @@
 
 ```
                  用户
-
                   |
                   |
-
-             Swagger / Demo
-
+             React 前端 / Demo
                   |
                   |
-
               FastAPI
-
                   |
                   |
-
             LangGraph Agent
-
                   |
-          ┌───────┴────────┐
+           ┌──────┴──────┐
           |                |
-
         LLM             Tools
-
      DeepSeek          高德Tool
-
                           |
-
                     高德地图API
-
                           |
-
                     POI / 路线数据
-
                           |
-
                     JSON旅行计划
-
 ```
 
 ---
@@ -92,7 +76,7 @@
 
 ## 后端
 
-| 技术            | 用途         |
+| 技术           | 用途        |
 | ------------- | ---------- |
 | FastAPI       | Web API 服务 |
 | LangGraph     | Agent流程编排  |
@@ -100,6 +84,19 @@
 | httpx         | 调用外部API    |
 | Pydantic      | 数据校验       |
 | python-dotenv | 环境变量管理     |
+
+## 前端
+
+| 技术 | 用途 |
+| ---- | ---- |
+| React 18 | UI 框架 |
+| TypeScript | 类型安全 |
+| Vite | 构建工具 |
+| TailwindCSS | 样式 |
+| Zustand | 状态管理 |
+| React Query | 数据请求 |
+| React Hook Form + Zod | 表单校验 |
+| @amap/amap-jsapi-loader | 高德地图 |
 
 ## AI模型
 
@@ -125,72 +122,58 @@ LLM_MODEL
 
 ```
 tourismai/
-
+│
 ├── backend/
-
 │   ├── app/
-
 │   │   ├── main.py              # FastAPI入口
-
 │   │   │
-
 │   │   ├── api/
-
 │   │   │   ├── planning.py      # 行程生成接口
-
 │   │   │   └── settings.py      # 配置接口
-
 │   │   │
-
 │   │   ├── agents/
-
 │   │   │   ├── planner.py       # LangGraph Agent
-
 │   │   │   ├── state.py         # Agent状态
-
 │   │   │   └── prompts.py       # System Prompt
-
 │   │   │
-
 │   │   ├── tools/
-
 │   │   │   ├── amap.py          # 高德工具
-
 │   │   │   └── base.py          # Tool接口
-
 │   │   │
-
 │   │   ├── services/
-
 │   │   │   └── amap_client.py   # 高德HTTP客户端
-
 │   │   │
-
 │   │   └── core/
-
 │   │       └── config.py        # 配置管理
-
 │   │
-
 │   ├── requirements.txt
-
 │   └── .env.example
-
-
+│
+├── frontend/                    # React 前端
+│   ├── src/
+│   │   ├── api/                 # API 请求
+│   │   ├── components/          # 组件（地图/时间线/表单）
+│   │   ├── hooks/               # 自定义 Hook
+│   │   ├── pages/               # 页面
+│   │   ├── router/              # 路由
+│   │   ├── store/               # Zustand 状态
+│   │   └── types/               # TypeScript 类型
+│   ├── package.json
+│   └── .env.example
+│
 ├── demo/
-
 │   └── index.html               # 简单测试页面
-
-
+│
 └── README.md
-
 ```
 
 ---
 
 # 环境配置
 
-## 1. 创建虚拟环境
+## 后端
+
+### 1. 创建虚拟环境
 
 ```bash
 python -m venv venv
@@ -210,45 +193,67 @@ Linux/macOS:
 source venv/bin/activate
 ```
 
----
-
-## 2. 安装依赖
+### 2. 安装依赖
 
 ```bash
+cd backend
 pip install -r requirements.txt
 ```
 
----
-
-# 环境变量
-
-复制：
+### 3. 配置环境变量
 
 ```bash
 cp .env.example .env
 ```
 
-修改：
+修改 `.env`：
 
 ```env
 # LLM配置
-
 LLM_BASE_URL=https://api.deepseek.com/v1
-
 LLM_API_KEY=your_api_key
-
 LLM_MODEL=deepseek-chat
 
-
 # 高德地图
-
 AMAP_KEY=your_amap_key
 
-
 # 开发模式
-
 MOCK_AMAP=false
+```
 
+---
+
+## 前端
+
+### 1. 安装依赖
+
+```bash
+cd frontend
+npm install
+```
+
+### 2. 配置环境变量
+
+```bash
+cp .env.example .env
+```
+
+修改 `.env` 填入高德 Web JS API Key（与后端 AMAP_KEY 不同，需单独申请）：
+
+```env
+VITE_AMAP_WEB_KEY=your_amap_web_key_here
+```
+
+### 3. 启动
+
+```bash
+npm run dev
+```
+
+启动成功：
+
+```
+http://localhost:5173
 ```
 
 ---
@@ -292,9 +297,8 @@ POST:
     "destination":"杭州",
     "days":3,
     "budget":2000,
-    "preference":"历史文化、美食"
+    "interests":"历史文化、美食"
 }
-
 ```
 
 返回：
@@ -315,7 +319,6 @@ POST:
         }
     ]
 }
-
 ```
 
 ---
@@ -324,19 +327,12 @@ POST:
 
 ```
 用户需求
-
-↓
-
+→
 Planner Agent
-
-↓
-
+→
 分析旅游约束
-
-↓
-
+→
 调用工具
-
 
     ├── search_poi
     |
@@ -344,15 +340,10 @@ Planner Agent
     |
     └── route_plan
 
-
-↓
-
+→
 LLM整理
-
-↓
-
+→
 结构化旅行方案
-
 ```
 
 ---
@@ -372,7 +363,6 @@ LLM整理
 ```
 关键词
 城市
-
 ```
 
 ---
@@ -387,11 +377,8 @@ LLM整理
 
 ```
 西湖
-
-↓
-
+→
 120.15,30.24
-
 ```
 
 ---
@@ -412,15 +399,10 @@ LLM整理
 
 ```
 Agent
-
-↓
-
+→
 调用Tool
-
-↓
-
+→
 获取数据
-
 ```
 
 错误：
@@ -438,15 +420,10 @@ Agent自己处理数据库
 
 ```
 tools/
-
 ├── amap.py
-
 ├── train.py
-
 ├── hotel.py
-
-├── browser.py
-
+└── browser.py
 ```
 
 ---
@@ -461,9 +438,9 @@ tools/
 
 计划：
 
-* React前端
-* 高德地图可视化
-* 行程时间线
+* ✅ React前端
+* ✅ 高德地图可视化
+* ✅ 行程时间线
 * WebSocket实时状态
 
 ---
@@ -510,19 +487,12 @@ Agent增强
 
 ```
 LLM推理
-
 +
-
 Tool调用
-
 +
-
 真实数据
-
 +
-
 任务规划
-
 ```
 
 ---
