@@ -1,0 +1,21 @@
+{
+  "name": "tourismai",
+  "version": "1.0.0",
+  "description": "一个基于 **LLM Agent + 地图工具调用 + 约束规划** 的智能旅游规划系统。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chris-chenM/TourismAI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Chris-chenM/TourismAI/issues"
+  },
+  "homepage": "https://github.com/Chris-chenM/TourismAI#readme"
+}

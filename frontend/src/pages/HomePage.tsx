@@ -1,22 +1,51 @@
-﻿import { useNavigate } from "react-router-dom";
+﻿import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import SearchForm from "../components/SearchForm";
 import LoadingSteps from "../components/LoadingSteps";
-import { usePlanTrip } from "../api/trip";
+import { streamPlanTrip } from "../api/trip";
 import { useTripStore } from "../store/tripStore";
 import type { PlanRequest } from "../api/trip";
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const mutation = usePlanTrip();
   const setTrip = useTripStore((s) => s.setTrip);
 
+  const [loadingPhase, setLoadingPhase] = useState<string | null>(null);
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // 保存 AbortController 以便中断
+  const abortRef = useRef<AbortController | null>(null);
+
   function handleSubmit(data: PlanRequest) {
-    mutation.mutate(data, {
-      onSuccess: (result) => {
+    // 重置状态
+    setLoading(true);
+    setError(null);
+    setLoadingPhase(null);
+    setLoadingMessage("");
+    setLoadingProgress(0);
+
+    const controller = streamPlanTrip(data, {
+      onPhase: (phase, message, progress) => {
+        setLoadingPhase(phase);
+        setLoadingMessage(message);
+        setLoadingProgress(progress);
+      },
+      onResult: (result) => {
         setTrip(result);
+        setLoading(false);
         navigate("/trip");
       },
+      onError: (errMsg) => {
+        setError(errMsg);
+        setLoading(false);
+        setLoadingPhase(null);
+      },
     });
+
+    abortRef.current = controller;
   }
 
   return (
@@ -30,18 +59,16 @@ export default function HomePage() {
 
         {/* 表单卡片 */}
         <div className="bg-white rounded-2xl shadow-lg shadow-indigo-100/50 p-6">
-          <SearchForm onSubmit={handleSubmit} loading={mutation.isPending} />
+          <SearchForm onSubmit={handleSubmit} loading={loading} />
         </div>
 
-        {/* Loading */}
-        <LoadingSteps show={mutation.isPending} />
-
-        {/* 错误 */}
-        {mutation.isError && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-500 text-sm text-center">
-            ❌ {mutation.error?.message || "请求失败，请检查后端是否启动"}
-          </div>
-        )}
+        {/* Loading / 错误 */}
+        <LoadingSteps
+          phase={loadingPhase}
+          message={loadingMessage}
+          progress={loadingProgress}
+          error={error}
+        />
       </div>
     </div>
   );

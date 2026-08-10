@@ -3,9 +3,10 @@
 import json
 import re
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.agents.planner import create_planner_agent, build_initial_state
+from app.agents.planner import create_planner_agent, build_initial_state, run_agent_stream
 
 router = APIRouter()
 
@@ -47,7 +48,7 @@ class PlanResponse(BaseModel):
     itinerary: list[DayPlan]
 
 
-# ── 接口 ──
+# ── 同步接口（保留不动） ──
 
 @router.post("/api/plan", response_model=PlanResponse)
 async def plan_trip(req: PlanRequest):
@@ -70,13 +71,33 @@ async def plan_trip(req: PlanRequest):
             itinerary=itinerary,
         )
     except json.JSONDecodeError as e:
-        # 把原始输出也带出来，方便定位
         raise HTTPException(
             status_code=500,
             detail=f"AI 返回了不规范的 JSON，请重试。错误位置：{str(e)}",
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"规划失败：{str(e)}")
+
+
+# ── SSE 流式接口 ──
+
+@router.post("/api/plan/stream")
+async def plan_trip_stream(req: PlanRequest):
+    """生成旅行计划（SSE 流式推送进度与结果）"""
+    initial_state = build_initial_state(req.destination, req.days, req.budget, req.interests)
+
+    async def event_generator():
+        async for sse_chunk in run_agent_stream(initial_state):
+            yield sse_chunk
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ── JSON 提取 ──
@@ -113,10 +134,9 @@ def _repair_json(text: str) -> str:
     text = re.sub(r",\s*(\}|\])", r"\1", text)
     # 2. 去掉连续逗号
     text = re.sub(r",\s*,", ",", text)
-    # 3. 补充缺失的引号（简单情况：未加引号的 key）
-    # 4. 去掉注释行 (// ...)
+    # 3. 去掉注释行 (// ...)
     text = re.sub(r"//[^\n]*", "", text)
-    # 5. 修复中文引号
+    # 4. 修复中文引号
     text = text.replace("\u201c", '"').replace("\u201d", '"')
     text = text.replace("\u2018", "'").replace("\u2019", "'")
 
