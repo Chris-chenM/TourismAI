@@ -14,13 +14,13 @@ export default function TripPage() {
   const planId = searchParams.get("plan_id");
   const [loadingHistory, setLoadingHistory] = useState(!!planId);
 
-  /* ´ÓÀúÊ·¼ÇÂ¼¼ÓÔØ */
+  /* ä»å†å²è®°å½•åŠ è½½ */
   useEffect(() => {
     if (!planId) return;
     fetchPlan(planId)
       .then((detail) => {
         if (detail.itinerary) {
-          // PlanDetail.itinerary ÀïµÄ½á¹¹¿ÉÄÜºÍ PlanResponse Ò»ÖÂ£¨º¬ days_plan/hotels/trains£©
+          // PlanDetail.itinerary é‡Œçš„ç»“æ„å¯èƒ½å’Œ PlanResponse ä¸€è‡´ï¼ˆå« days_plan/hotels/trainsï¼‰
           const it = detail.itinerary as PlanResponse;
           setTrip({
             destination: detail.destination,
@@ -36,7 +36,7 @@ export default function TripPage() {
       .finally(() => setLoadingHistory(false));
   }, [planId, setTrip, navigate]);
 
-  /* ÎŞÊı¾İÔò»ØÊ×Ò³ */
+  /* æ— æ•°æ®åˆ™å›é¦–é¡µ */
   useEffect(() => {
     if (!planId && !trip) navigate("/", { replace: true });
   }, [trip, planId, navigate]);
@@ -44,7 +44,7 @@ export default function TripPage() {
   if (loadingHistory) {
     return (
       <div className="h-screen flex items-center justify-center text-gray-400">
-        ¼ÓÔØÖĞ¡­
+        åŠ è½½ä¸­â€¦
       </div>
     );
   }
@@ -53,53 +53,53 @@ export default function TripPage() {
 
   return (
     <div className="h-screen flex flex-col">
-      {/* ¶¥²¿À¸ */}
+      {/* é¡¶éƒ¨æ  */}
       <header className="h-14 shrink-0 bg-white border-b border-gray-100 flex items-center px-4 gap-4">
         <button
           onClick={() => navigate("/")}
           className="text-sm text-gray-500 hover:text-indigo-500 transition-colors cursor-pointer"
         >
-          ¡û ÖØĞÂ¹æ»®
+          â† é‡æ–°è§„åˆ’
         </button>
         <h2 className="text-base font-semibold text-gray-700">
-          {trip.destination} ¡¤ {trip.days} ÈÕÓÎ
+          {trip.destination} Â· {trip.days} æ—¥æ¸¸
         </h2>
         <div className="ml-auto">
           <button
             onClick={() => navigate("/history")}
             className="text-sm text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer"
           >
-            ?? ÀúÊ·¼ÇÂ¼
+            ğŸ“‹ å†å²è®°å½•
           </button>
         </div>
       </header>
 
-      {/* Ö÷Ìå£º×óµØÍ¼ + ÓÒÊ±¼äÏß */}
+      {/* ä¸»ä½“ï¼šå·¦åœ°å›¾ + å³æ—¶é—´çº¿ */}
       <main className="flex-1 flex overflow-hidden">
         <div className="flex-1 min-w-0">
           <MapView />
         </div>
         <aside className="w-[360px] shrink-0 bg-white border-l border-gray-100 p-4">
           <Timeline />
-          {/* ¾Æµê / »ğ³µÆ±Õ¹Ê¾ */}
+          {/* é…’åº— / ç«è½¦ç¥¨å±•ç¤º */}
           {(trip.hotels && trip.hotels.length > 0) && (
             <div className="mt-6 border-t border-gray-100 pt-4">
-              <h3 className="text-sm font-semibold text-gray-600 mb-2">?? ÍÆ¼ö¾Æµê</h3>
+              <h3 className="text-sm font-semibold text-gray-600 mb-2">ğŸ¨ æ¨èé…’åº—</h3>
               {trip.hotels.map((h, i) => (
                 <div key={i} className="text-xs text-gray-500 mb-1">
                   <span className="font-medium text-gray-700">{h.name}</span>
-                  {" "}?{h.star} ¡¤ £¤{h.price_per_night}/Íí
+                  {" "}?{h.star} Â· ï¿¥{h.price_per_night}/æ™š
                 </div>
               ))}
             </div>
           )}
           {(trip.trains && trip.trains.length > 0) && (
             <div className="mt-4 border-t border-gray-100 pt-4">
-              <h3 className="text-sm font-semibold text-gray-600 mb-2">?? »ğ³µÆ±</h3>
+              <h3 className="text-sm font-semibold text-gray-600 mb-2">ğŸš„ ç«è½¦ç¥¨</h3>
               {trip.trains.map((t, i) => (
                 <div key={i} className="text-xs text-gray-500 mb-1">
                   <span className="font-medium text-gray-700">{t.train_number}</span>
-                  {" "}{t.from_city} ¡ú {t.to_city} ¡¤ {t.departure_time}-{t.arrival_time} ¡¤ £¤{t.price}
+                  {" "}{t.from_city} â†’ {t.to_city} Â· {t.departure_time}-{t.arrival_time} Â· ï¿¥{t.price}
                 </div>
               ))}
             </div>

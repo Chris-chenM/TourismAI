@@ -1,4 +1,4 @@
-﻿import { useTripStore } from "../store/tripStore";
+import { useTripStore } from "../store/tripStore";
 
 export default function Timeline() {
   const trip = useTripStore((s) => s.trip);

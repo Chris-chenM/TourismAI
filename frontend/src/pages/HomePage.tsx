@@ -52,28 +52,28 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Í·²¿ */}
+        {/* å¤´éƒ¨ */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">?? TourismAI</h1>
-          <p className="text-gray-400 text-sm">ÖÇÄÜÂÃÓÎ¹æ»®ÖúÊÖ</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">ğŸ—ºï¸ TourismAI</h1>
+          <p className="text-gray-400 text-sm">æ™ºèƒ½æ—…æ¸¸è§„åˆ’åŠ©æ‰‹</p>
         </div>
 
-        {/* ±íµ¥¿¨Æ¬ */}
+        {/* è¡¨å•å¡ç‰‡ */}
         <div className="bg-white rounded-2xl shadow-lg shadow-indigo-100/50 p-6">
           <SearchForm onSubmit={handleSubmit} loading={loading} />
         </div>
 
-        {/* ÀúÊ·¼ÇÂ¼Èë¿Ú */}
+        {/* å†å²è®°å½•å…¥å£ */}
         <div className="text-center mt-6">
           <Link
             to="/history"
             className="text-sm text-gray-400 hover:text-indigo-500 transition-colors"
           >
-            ?? ²é¿´ÀúÊ·¼ÇÂ¼
+            ğŸ“‹ æŸ¥çœ‹å†å²è®°å½•
           </Link>
         </div>
 
-        {/* Loading / ´íÎó */}
+        {/* Loading / é”™è¯¯ */}
         <LoadingSteps
           phase={loadingPhase}
           message={loadingMessage}

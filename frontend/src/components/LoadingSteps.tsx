@@ -1,4 +1,4 @@
-﻿interface Props {
+interface Props {
   /** 当前阶段，null 时不显示 */
   phase: string | null;
   /** 阶段文案 */

@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useTripStore } from "../store/tripStore";
 import { useMap } from "../hooks/useMap";
 

@@ -1,4 +1,4 @@
-﻿/* 高德地图初始化 Hook */
+/* 高德地图初始化 Hook */
 
 import { useEffect, useRef, useState } from "react";
 

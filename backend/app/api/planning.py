@@ -219,23 +219,66 @@ def _extract_json(text: str) -> dict:
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
+    # Attempt 1: parse as-is
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
+    # Attempt 2: extract outermost { } and repair
     match = re.search(r"\{[\s\S]*\}", text)
     if match:
         text = match.group()
     text = _repair_json(text)
-    return json.loads(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        # Attempt 3: try to balance braces and retry
+        balanced = _balance_braces(text)
+        try:
+            return json.loads(balanced)
+        except json.JSONDecodeError:
+            pass
+        # Log the raw output for debugging
+        import logging
+        logging.getLogger(__name__).warning(
+            "Failed to parse LLM JSON at line %d col %d. Raw (first 500 chars): %s",
+            e.lineno, e.colno, text[:500]
+        )
+        raise
 
+
+
+def _balance_braces(text: str) -> str:
+    """Try to make braces balanced by adding missing closing brackets."""
+    open_braces = text.count("{") - text.count("}")
+    open_brackets = text.count("[") - text.count("]")
+    fixed = text.rstrip()
+    if open_braces > 0:
+        fixed += "\n" + "\n}" * open_braces
+    if open_brackets > 0:
+        fixed += "\n" + "\n]" * open_brackets
+    return fixed
 
 def _repair_json(text: str) -> str:
+    """Repair common LLM JSON formatting errors."""
+    # Remove markdown code fences (in case _extract_json didn't catch them)
+    text = re.sub(r"^```(?:json)?\s*", "", text.strip())
+    text = re.sub(r"\s*```$", "", text)
+    # Remove trailing commas before ] or }
     text = re.sub(r",\s*(\}|\])", r"\1", text)
+    # Remove double commas
     text = re.sub(r",\s*,", ",", text)
+    # Remove single-line comments
     text = re.sub(r"//[^\n]*", "", text)
+    # Fix smart/curly quotes
     text = text.replace("\u201c", '"').replace("\u201d", '"')
     text = text.replace("\u2018", "'").replace("\u2019", "'")
+    # Fix missing commas between objects in arrays: {...} {...} -> {...}, {...}
+    text = re.sub(r"\}\s*\{", "}, {", text)
+    # Fix missing commas between arrays: ] [ -> ], [
+    text = re.sub(r"\]\s*\[", "], [", text)
+    # Fix unquoted property names: {key: value} -> {"key": value}
+    text = re.sub(r'(?<=[{,])\s*(\w+)\s*:', r'"\1":', text)
     return text
 
 

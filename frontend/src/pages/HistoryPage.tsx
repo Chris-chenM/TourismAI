@@ -18,15 +18,15 @@ export default function HistoryPage() {
   }, []);
 
   async function handleDelete(id: string) {
-    if (!confirm("È·¶¨É¾³ıÕâÌõ¼ÇÂ¼£¿")) return;
+    if (!confirm("ç¡®å®šåˆ é™¤è¿™æ¡è®°å½•ï¼Ÿ")) return;
     await deletePlan(id);
     setPlans((prev) => prev.filter((p) => p.id !== id));
   }
 
   const statusLabel: Record<string, string> = {
-    generating: "? Éú³ÉÖĞ",
-    completed: "? ÒÑÍê³É",
-    failed: "? Ê§°Ü",
+    generating: "? ç”Ÿæˆä¸­",
+    completed: "? å·²å®Œæˆ",
+    failed: "? å¤±è´¥",
   };
 
   const statusColor: Record<string, string> = {
@@ -38,31 +38,31 @@ export default function HistoryPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white p-4">
       <div className="max-w-2xl mx-auto">
-        {/* Í·²¿ */}
+        {/* å¤´éƒ¨ */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">?? ÎÒµÄĞĞ³Ì</h1>
-            <p className="text-sm text-gray-400 mt-1">ÀúÊ·ÂÃĞĞ¼Æ»®</p>
+            <h1 className="text-2xl font-bold text-gray-800">ğŸ“‹ æˆ‘çš„è¡Œç¨‹</h1>
+            <p className="text-sm text-gray-400 mt-1">å†å²æ—…è¡Œè®¡åˆ’</p>
           </div>
           <button
             onClick={() => navigate("/")}
             className="text-sm text-gray-400 hover:text-indigo-500 transition-colors cursor-pointer"
           >
-            ¡û ·µ»ØÊ×Ò³
+            â† è¿”å›é¦–é¡µ
           </button>
         </div>
 
-        {/* ÁĞ±í */}
+        {/* åˆ—è¡¨ */}
         {loading ? (
-          <p className="text-center text-gray-400 py-12">¼ÓÔØÖĞ¡­</p>
+          <p className="text-center text-gray-400 py-12">åŠ è½½ä¸­â€¦</p>
         ) : plans.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-gray-400 text-lg mb-2">»¹Ã»ÓĞÂÃĞĞ¼ÇÂ¼</p>
+            <p className="text-gray-400 text-lg mb-2">è¿˜æ²¡æœ‰æ—…è¡Œè®°å½•</p>
             <button
               onClick={() => navigate("/")}
               className="text-indigo-500 hover:text-indigo-600 text-sm transition-colors cursor-pointer"
             >
-              È¥Éú³ÉµÚÒ»¸ö¼Æ»® ¡ú
+              å»ç”Ÿæˆç¬¬ä¸€ä¸ªè®¡åˆ’ â†’
             </button>
           </div>
         ) : (
@@ -76,10 +76,10 @@ export default function HistoryPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-semibold text-gray-700">{plan.destination}</span>
-                    <span className="text-xs text-gray-400">{plan.days}Ìì</span>
+                    <span className="text-xs text-gray-400">{plan.days}å¤©</span>
                   </div>
                   <div className="text-xs text-gray-400">
-                    Ô¤Ëã £¤{plan.budget} ¡¤ {plan.interests || "ÎŞÆ«ºÃ"}
+                    é¢„ç®— ï¿¥{plan.budget} Â· {plan.interests || "æ— åå¥½"}
                   </div>
                   <div className="text-xs text-gray-400 mt-0.5">
                     {new Date(plan.created_at).toLocaleString("zh-CN")}
@@ -96,7 +96,7 @@ export default function HistoryPage() {
                     }}
                     className="text-xs text-gray-300 hover:text-red-400 transition-colors cursor-pointer"
                   >
-                    É¾³ı
+                    åˆ é™¤
                   </button>
                 </div>
               </div>

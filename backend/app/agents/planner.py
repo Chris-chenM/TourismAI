@@ -1,4 +1,4 @@
-"""LangGraph planner agent: LLM -> tools -> LLM -> end"""
+﻿"""LangGraph planner agent: LLM -> tools -> LLM -> end"""
 
 import json
 from langgraph.graph import StateGraph, END
@@ -147,7 +147,7 @@ async def run_agent_stream(state: dict):
                     result = {
                         "destination": itinerary["destination"],
                         "days": itinerary["days"],
-                        "itinerary": days_plan,
+                        "itinerary": [d.model_dump() for d in days_plan],
                         "days_plan": itinerary["days_plan"],
                         "hotels": itinerary["hotels"],
                         "trains": itinerary["trains"],

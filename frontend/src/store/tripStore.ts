@@ -1,4 +1,4 @@
-﻿/* Zustand：仅存 UI 交互状态，不存表单/loading/error */
+/* Zustand：仅存 UI 交互状态，不存表单/loading/error */
 
 import { create } from "zustand";
 import type { PlanResponse } from "../types/trip";
