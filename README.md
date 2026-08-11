@@ -44,6 +44,21 @@
 
 ---
 
+## Sprint 2 — 产品化基础
+
+目标：
+
+> 完善前端体验，支持实时进度反馈。
+
+当前实现：
+
+✅ React 前端
+✅ 高德地图可视化
+✅ 行程时间线
+✅ SSE 实时进度推送（analyzing → searching_poi → routing → generating_plan → done）
+
+---
+
 # 系统架构
 
 ```
@@ -52,6 +67,12 @@
                   |
              React 前端 / Demo
                   |
+        ┌─────────┴─────────┐
+        |                   |
+    POST /api/plan     POST /api/plan/stream
+     (同步)              (SSE 流式推送)
+        |                   |
+        └─────────┬─────────┘
                   |
               FastAPI
                   |
@@ -128,11 +149,11 @@ tourismai/
 │   │   ├── main.py              # FastAPI入口
 │   │   │
 │   │   ├── api/
-│   │   │   ├── planning.py      # 行程生成接口
+│   │   │   ├── planning.py      # 行程生成接口（同步 + SSE流式）
 │   │   │   └── settings.py      # 配置接口
 │   │   │
 │   │   ├── agents/
-│   │   │   ├── planner.py       # LangGraph Agent
+│   │   │   ├── planner.py       # LangGraph Agent + SSE流式执行器
 │   │   │   ├── state.py         # Agent状态
 │   │   │   └── prompts.py       # System Prompt
 │   │   │
@@ -151,8 +172,8 @@ tourismai/
 │
 ├── frontend/                    # React 前端
 │   ├── src/
-│   │   ├── api/                 # API 请求
-│   │   ├── components/          # 组件（地图/时间线/表单）
+│   │   ├── api/                 # API 请求（含 SSE 流式）
+│   │   ├── components/          # 组件（地图/时间线/表单/进度）
 │   │   ├── hooks/               # 自定义 Hook
 │   │   ├── pages/               # 页面
 │   │   ├── router/              # 路由
@@ -282,7 +303,7 @@ http://127.0.0.1:8000
 
 # API接口
 
-## 生成旅行计划
+## 生成旅行计划（同步）
 
 POST:
 
@@ -320,6 +341,46 @@ POST:
     ]
 }
 ```
+
+---
+
+## 生成旅行计划（SSE 流式）
+
+POST:
+
+```
+/api/plan/stream
+```
+
+请求体同上。通过 SSE（Server-Sent Events）实时推送 Agent 执行进度：
+
+```
+event: phase
+data: {"phase":"analyzing","message":"正在分析需求…","progress":10}
+
+event: phase
+data: {"phase":"searching_poi","message":"正在搜索景点…","progress":30}
+
+event: phase
+data: {"phase":"routing","message":"正在计算路线…","progress":50}
+
+event: phase
+data: {"phase":"generating_plan","message":"正在生成旅行计划…","progress":70}
+
+event: result
+data: {"destination":"杭州","days":3,"itinerary":[...]}
+
+event: error
+data: {"message":"规划失败：..."}
+```
+
+| phase | progress | 含义 |
+| ----- | -------- | ---- |
+| `analyzing` | 10% | LLM 首次分析用户需求 |
+| `searching_poi` | 30% | 调用高德搜索景点 / 地理编码 |
+| `routing` | 50% | 计算景点间交通路线 |
+| `generating_plan` | 70% | LLM 整理生成最终旅行方案 |
+| `done` | 100% | 推送 `result` 事件，包含完整 JSON |
 
 ---
 
@@ -429,21 +490,6 @@ tools/
 ---
 
 # 后续开发计划
-
-## Sprint 2
-
-目标：
-
-产品化基础
-
-计划：
-
-* ✅ React前端
-* ✅ 高德地图可视化
-* ✅ 行程时间线
-* WebSocket实时状态
-
----
 
 ## Sprint 3
 

@@ -1,13 +1,14 @@
-ï»¿/* API å±‚ï¼šPOST /api/plan ä¸ SSE æµå¼è¯·æ±‚ */
+/* API ²ã£ºPOST /api/plan Óë SSE Á÷Ê½ÇëÇó */
 
 import { useMutation } from "@tanstack/react-query";
-import type { PlanResponse } from "../types/trip";
+import type { PlanResponse, PlanSummary, PlanDetail } from "../types/trip";
 
 export interface PlanRequest {
   destination: string;
   days: number;
   budget: number;
   interests: string;
+  visitor_id: string;
 }
 
 async function planTrip(req: PlanRequest): Promise<PlanResponse> {
@@ -18,7 +19,7 @@ async function planTrip(req: PlanRequest): Promise<PlanResponse> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "è§„åˆ’å¤±è´¥ï¼Œè¯·æ£€æŸ¥åç«¯æ˜¯å¦å¯åŠ¨");
+    throw new Error(err.detail || "¹æ»®Ê§°Ü£¬Çë¼ì²éºó¶ËÊÇ·ñÆô¶¯");
   }
   return res.json();
 }
@@ -28,7 +29,7 @@ export function usePlanTrip() {
 }
 
 
-// â”€â”€ SSE æµå¼è¯·æ±‚ â”€â”€
+// ©¤©¤ SSE Á÷Ê½ÇëÇó ©¤©¤
 
 export interface StreamCallbacks {
   onPhase: (phase: string, message: string, progress: number) => void;
@@ -53,13 +54,13 @@ export function streamPlanTrip(
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        callbacks.onError(err.detail || "è§„åˆ’å¤±è´¥ï¼Œè¯·æ£€æŸ¥åç«¯æ˜¯å¦å¯åŠ¨");
+        callbacks.onError(err.detail || "¹æ»®Ê§°Ü£¬Çë¼ì²éºó¶ËÊÇ·ñÆô¶¯");
         return;
       }
 
       const reader = res.body?.getReader();
       if (!reader) {
-        callbacks.onError("æµè§ˆå™¨ä¸æ”¯æŒæµå¼è¯»å–");
+        callbacks.onError("ä¯ÀÀÆ÷²»Ö§³ÖÁ÷Ê½¶ÁÈ¡");
         return;
       }
 
@@ -73,7 +74,6 @@ export function streamPlanTrip(
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
-        // æœ€åä¸€æ®µå¯èƒ½ä¸å®Œæ•´ï¼Œç•™åˆ°ä¸‹æ¬¡
         buffer = lines.pop() || "";
 
         for (const line of lines) {
@@ -88,10 +88,10 @@ export function streamPlanTrip(
               } else if (currentEvent === "result") {
                 callbacks.onResult(data as PlanResponse);
               } else if (currentEvent === "error") {
-                callbacks.onError(data.message || "æœªçŸ¥é”™è¯¯");
+                callbacks.onError(data.message || "Î´Öª´íÎó");
               }
             } catch {
-              // å¿½ç•¥è§£æå¤±è´¥çš„è¡Œ
+              // ºöÂÔ½âÎöÊ§°ÜµÄĞĞ
             }
             currentEvent = "";
           }
@@ -99,10 +99,30 @@ export function streamPlanTrip(
       }
     } catch (err: any) {
       if (err.name !== "AbortError") {
-        callbacks.onError(err.message || "ç½‘ç»œè¯·æ±‚å¤±è´¥");
+        callbacks.onError(err.message || "ÍøÂçÇëÇóÊ§°Ü");
       }
     }
   })();
 
   return controller;
+}
+
+
+// ©¤©¤ ÀúÊ·¼ÇÂ¼ API ©¤©¤
+
+export async function fetchPlans(visitorId: string): Promise<PlanSummary[]> {
+  const res = await fetch(`/api/plans?visitor_id=${encodeURIComponent(visitorId)}`);
+  if (!res.ok) throw new Error("»ñÈ¡ÀúÊ·¼ÇÂ¼Ê§°Ü");
+  return res.json();
+}
+
+export async function fetchPlan(id: string): Promise<PlanDetail> {
+  const res = await fetch(`/api/plans/${id}`);
+  if (!res.ok) throw new Error("»ñÈ¡¼Æ»®ÏêÇéÊ§°Ü");
+  return res.json();
+}
+
+export async function deletePlan(id: string): Promise<void> {
+  const res = await fetch(`/api/plans/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error("É¾³ıÊ§°Ü");
 }

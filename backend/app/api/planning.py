@@ -1,30 +1,29 @@
-﻿"""行程规划接口"""
+﻿"""Trip planning API"""
 
 import json
 import re
-from fastapi import APIRouter, HTTPException
+import uuid
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.planner import create_planner_agent, build_initial_state, run_agent_stream
+from app.core.database import get_db
+from app.repositories import plan_repo, event_repo
 
 router = APIRouter()
 
 
-# ── 请求模型 ──
-
 class PlanRequest(BaseModel):
-    """规划请求"""
-    destination: str = Field(..., description="目的地城市", examples=["杭州"])
-    days: int = Field(..., ge=1, le=30, description="出行天数", examples=[3])
-    budget: float = Field(..., gt=0, description="预算（元）", examples=[2000])
-    interests: str = Field(default="", description="兴趣偏好", examples=["历史文化、美食"])
+    destination: str = Field(..., examples=["Hangzhou"])
+    days: int = Field(..., ge=1, le=30, examples=[3])
+    budget: float = Field(..., gt=0, examples=[2000])
+    interests: str = Field(default="", examples=["history, food"])
+    visitor_id: str = Field(default="")
 
-
-# ── 响应模型 ──
 
 class Activity(BaseModel):
-    """单个景点活动"""
     name: str
     location: str
     longitude: float
@@ -36,55 +35,103 @@ class Activity(BaseModel):
 
 
 class DayPlan(BaseModel):
-    """单日行程"""
     day: int
     activities: list[Activity]
 
 
 class PlanResponse(BaseModel):
-    """规划结果"""
     destination: str
     days: int
     itinerary: list[DayPlan]
 
 
-# ── 同步接口（保留不动） ──
+class PlanSummary(BaseModel):
+    id: str
+    destination: str
+    days: int
+    budget: float
+    interests: str
+    status: str
+    created_at: str
+
+
+class AgentEventOut(BaseModel):
+    id: str
+    phase: str
+    message: str
+    created_at: str
+
+
+class PlanDetail(BaseModel):
+    id: str
+    visitor_id: str
+    destination: str
+    days: int
+    budget: float
+    interests: str
+    status: str
+    itinerary: dict | None
+    events: list[AgentEventOut]
+    created_at: str
+
 
 @router.post("/api/plan", response_model=PlanResponse)
 async def plan_trip(req: PlanRequest):
-    """生成旅行计划"""
     try:
         agent = create_planner_agent()
-        initial_state = build_initial_state(req.destination, req.days, req.budget, req.interests)
+        initial_state = build_initial_state(
+            req.destination, req.days, req.budget, req.interests, req.visitor_id
+        )
+
+        plan_id = None
+        if req.visitor_id:
+            async for db in _get_db_session():
+                plan = await plan_repo.save_plan(
+                    db, req.visitor_id, req.destination, req.days,
+                    req.budget, req.interests, "generating"
+                )
+                plan_id = plan.id
 
         result = await agent.ainvoke(initial_state)
-
         last_msg = result["messages"][-1]
         content = last_msg.content if hasattr(last_msg, "content") else str(last_msg)
 
         raw = _extract_json(content)
-        itinerary = _parse_itinerary(raw)
+        days_plan = _parse_itinerary_days(raw)
+
+        if plan_id:
+            itinerary_doc = {
+                "destination": raw.get("destination", req.destination),
+                "days": raw.get("days", req.days),
+                "days_plan": [d.model_dump() for d in days_plan],
+                "hotels": _parse_hotels(raw),
+                "trains": _parse_trains(raw),
+            }
+            async for db in _get_db_session():
+                await plan_repo.update_plan_status(db, plan_id, "completed", itinerary_doc)
 
         return PlanResponse(
             destination=raw.get("destination", req.destination),
             days=raw.get("days", req.days),
-            itinerary=itinerary,
+            itinerary=days_plan,
         )
     except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"AI 返回了不规范的 JSON，请重试。错误位置：{str(e)}",
-        )
+        if plan_id:
+            async for db in _get_db_session():
+                await plan_repo.update_plan_status(db, plan_id, "failed")
+        raise HTTPException(status_code=500, detail=f"Invalid JSON from AI: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"规划失败：{str(e)}")
+        if plan_id:
+            async for db in _get_db_session():
+                await plan_repo.update_plan_status(db, plan_id, "failed")
+        raise HTTPException(status_code=500, detail=f"Plan failed: {e}")
 
-
-# ── SSE 流式接口 ──
 
 @router.post("/api/plan/stream")
 async def plan_trip_stream(req: PlanRequest):
-    """生成旅行计划（SSE 流式推送进度与结果）"""
-    initial_state = build_initial_state(req.destination, req.days, req.budget, req.interests)
+    initial_state = build_initial_state(
+        req.destination, req.days, req.budget, req.interests, req.visitor_id
+    )
 
     async def event_generator():
         async for sse_chunk in run_agent_stream(initial_state):
@@ -93,60 +140,109 @@ async def plan_trip_stream(req: PlanRequest):
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
-# ── JSON 提取 ──
+@router.get("/api/plans", response_model=list[PlanSummary])
+async def list_plans(visitor_id: str, db: AsyncSession = Depends(get_db)):
+    plans = await plan_repo.list_plans(db, visitor_id)
+    return [
+        PlanSummary(
+            id=str(p.id),
+            destination=p.destination,
+            days=p.days,
+            budget=p.budget,
+            interests=p.interests,
+            status=p.status,
+            created_at=p.created_at.isoformat() if p.created_at else "",
+        )
+        for p in plans
+    ]
+
+
+@router.get("/api/plans/{plan_id}", response_model=PlanDetail)
+async def get_plan_detail(plan_id: str, db: AsyncSession = Depends(get_db)):
+    try:
+        pid = uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan ID")
+
+    plan = await plan_repo.get_plan(db, pid)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    events = await event_repo.get_events(db, pid)
+    return PlanDetail(
+        id=str(plan.id),
+        visitor_id=plan.visitor_id,
+        destination=plan.destination,
+        days=plan.days,
+        budget=plan.budget,
+        interests=plan.interests,
+        status=plan.status,
+        itinerary=plan.itinerary,
+        events=[
+            AgentEventOut(
+                id=str(e.id),
+                phase=e.phase,
+                message=e.message,
+                created_at=e.created_at.isoformat() if e.created_at else "",
+            )
+            for e in events
+        ],
+        created_at=plan.created_at.isoformat() if plan.created_at else "",
+    )
+
+
+@router.delete("/api/plans/{plan_id}")
+async def delete_plan(plan_id: str, db: AsyncSession = Depends(get_db)):
+    try:
+        pid = uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan ID")
+
+    deleted = await plan_repo.delete_plan(db, pid)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return {"message": "Deleted"}
+
+
+async def _get_db_session():
+    from app.core.database import async_session
+    async with async_session() as session:
+        yield session
+
 
 def _extract_json(text: str) -> dict:
-    """从大模型输出中提取 JSON，自动修复常见格式问题"""
     text = text.strip()
-
-    # 去掉 Markdown 代码块
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
-
-    # 尝试直接解析
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
-
-    # 提取花括号内容
     match = re.search(r"\{[\s\S]*\}", text)
     if match:
         text = match.group()
-
-    # 修复常见 LLM JSON 错误
     text = _repair_json(text)
-
     return json.loads(text)
 
 
 def _repair_json(text: str) -> str:
-    """修复 LLM 常见 JSON 格式错误"""
-    # 1. 去掉尾部逗号（在 } 或 ] 之前）
     text = re.sub(r",\s*(\}|\])", r"\1", text)
-    # 2. 去掉连续逗号
     text = re.sub(r",\s*,", ",", text)
-    # 3. 去掉注释行 (// ...)
     text = re.sub(r"//[^\n]*", "", text)
-    # 4. 修复中文引号
     text = text.replace("\u201c", '"').replace("\u201d", '"')
     text = text.replace("\u2018", "'").replace("\u2019", "'")
-
     return text
 
 
-def _parse_itinerary(raw: dict) -> list[DayPlan]:
-    """将 LLM 输出的原始 dict 转为 Pydantic 模型，缺失字段自动补默认值"""
-    days = []
-    for day_data in raw.get("itinerary", []):
+def _parse_itinerary_days(raw: dict) -> list[DayPlan]:
+    days_list = raw.get("days_plan", raw.get("itinerary", []))
+    result = []
+    for day_data in days_list:
         activities = []
         for act in day_data.get("activities", []):
             activities.append(Activity(
@@ -159,5 +255,13 @@ def _parse_itinerary(raw: dict) -> list[DayPlan]:
                 transport=act.get("transport", ""),
                 description=act.get("description", ""),
             ))
-        days.append(DayPlan(day=day_data.get("day", len(days) + 1), activities=activities))
-    return days
+        result.append(DayPlan(day=day_data.get("day", len(result) + 1), activities=activities))
+    return result
+
+
+def _parse_hotels(raw: dict) -> list[dict]:
+    return raw.get("hotels", [])
+
+
+def _parse_trains(raw: dict) -> list[dict]:
+    return raw.get("trains", [])

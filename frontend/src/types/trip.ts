@@ -1,9 +1,12 @@
-ï»¿/* è¡Œç¨‹æ•°æ®ç±»å‹ â€”â€” æ‰€æœ‰ç»„ä»¶çš„å”¯ä¸€æ•°æ®æ¥æº */
+/* ĞĞ³ÌÊı¾İÀàĞÍ ¡ª¡ª ËùÓĞ×é¼şµÄÎ¨Ò»Êı¾İÀ´Ô´ */
 
 export interface PlanResponse {
   destination: string;
   days: number;
   itinerary: DayPlan[];
+  days_plan?: DayPlan[];
+  hotels?: HotelInfo[];
+  trains?: TrainInfo[];
 }
 
 export interface DayPlan {
@@ -17,7 +20,60 @@ export interface Activity {
   longitude: number;
   latitude: number;
   start_time: string;
-  duration: number;    // åˆ†é’Ÿ
+  duration: number;    // ·ÖÖÓ
   transport: string;
   description: string;
+}
+
+export interface HotelInfo {
+  name: string;
+  address: string;
+  longitude: number;
+  latitude: number;
+  price_per_night: number;
+  star: number;
+}
+
+export interface TrainInfo {
+  train_number: string;
+  from_city: string;
+  to_city: string;
+  from_station: string;
+  to_station: string;
+  departure_time: string;
+  arrival_time: string;
+  duration_min: number;
+  price: number;
+}
+
+/* ÀúÊ·ÁĞ±íÕªÒª */
+export interface PlanSummary {
+  id: string;
+  destination: string;
+  days: number;
+  budget: number;
+  interests: string;
+  status: string;
+  created_at: string;
+}
+
+/* ¼Æ»®ÏêÇé£¨º¬ events£© */
+export interface AgentEvent {
+  id: string;
+  phase: string;
+  message: string;
+  created_at: string;
+}
+
+export interface PlanDetail {
+  id: string;
+  visitor_id: string;
+  destination: string;
+  days: number;
+  budget: number;
+  interests: string;
+  status: string;
+  itinerary: PlanResponse | null;
+  events: AgentEvent[];
+  created_at: string;
 }

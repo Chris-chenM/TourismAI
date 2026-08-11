@@ -1,9 +1,10 @@
-ï»¿import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import SearchForm from "../components/SearchForm";
 import LoadingSteps from "../components/LoadingSteps";
 import { streamPlanTrip } from "../api/trip";
 import { useTripStore } from "../store/tripStore";
+import { getVisitorId } from "../utils/visitorId";
 import type { PlanRequest } from "../api/trip";
 
 export default function HomePage() {
@@ -16,18 +17,18 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // ä¿å­˜ AbortController ä»¥ä¾¿ä¸­æ–­
   const abortRef = useRef<AbortController | null>(null);
 
-  function handleSubmit(data: PlanRequest) {
-    // é‡ç½®çŠ¶æ€
+  function handleSubmit(data: Omit<PlanRequest, "visitor_id">) {
     setLoading(true);
     setError(null);
     setLoadingPhase(null);
     setLoadingMessage("");
     setLoadingProgress(0);
 
-    const controller = streamPlanTrip(data, {
+    const req: PlanRequest = { ...data, visitor_id: getVisitorId() };
+
+    const controller = streamPlanTrip(req, {
       onPhase: (phase, message, progress) => {
         setLoadingPhase(phase);
         setLoadingMessage(message);
@@ -51,18 +52,28 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* å¤´éƒ¨ */}
+        {/* Í·²¿ */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">ğŸ—º TourismAI</h1>
-          <p className="text-gray-400 text-sm">æ™ºèƒ½æ—…æ¸¸è§„åˆ’åŠ©æ‰‹</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">?? TourismAI</h1>
+          <p className="text-gray-400 text-sm">ÖÇÄÜÂÃÓÎ¹æ»®ÖúÊÖ</p>
         </div>
 
-        {/* è¡¨å•å¡ç‰‡ */}
+        {/* ±íµ¥¿¨Æ¬ */}
         <div className="bg-white rounded-2xl shadow-lg shadow-indigo-100/50 p-6">
           <SearchForm onSubmit={handleSubmit} loading={loading} />
         </div>
 
-        {/* Loading / é”™è¯¯ */}
+        {/* ÀúÊ·¼ÇÂ¼Èë¿Ú */}
+        <div className="text-center mt-6">
+          <Link
+            to="/history"
+            className="text-sm text-gray-400 hover:text-indigo-500 transition-colors"
+          >
+            ?? ²é¿´ÀúÊ·¼ÇÂ¼
+          </Link>
+        </div>
+
+        {/* Loading / ´íÎó */}
         <LoadingSteps
           phase={loadingPhase}
           message={loadingMessage}
